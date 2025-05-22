@@ -6,50 +6,6 @@ using System.Text;
 [McpServerToolType]
 public static class SchemaTool
 {
-    [McpServerTool, Description("""
-        Get data from a given query. Can filter by column values or sort by specific columns. The query must be a valid SQL SELECT statement.
-        The object in query must exist in the database. The query parameters must be valid SQL parameters.
-        """)]
-    public static string ExecuteGetQueryData(string query, params SqlParameter[] queryParams)
-    {
-        var command = new SqlCommand(query);
-        if (queryParams != null && queryParams.Length > 0)
-        {
-            foreach (var param in queryParams)
-            {
-                command.Parameters.Add(param);
-            }
-        }
-
-        return Execute(command, (reader) =>
-        {
-            var results = new StringBuilder();
-            // Markdown table header
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                results.Append($"| {reader.GetName(i)} ");
-            }
-            results.AppendLine("|");
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                results.Append("|---");
-            }
-            results.AppendLine("|");
-            // Process each row
-            bool hasRows = false;
-            while (reader.Read())
-            {
-                hasRows = true;
-                for (int i = 0; i < reader.FieldCount; i++)
-                {
-                    string value = reader[i]?.ToString().Replace("|", "\\|") ?? "";
-                    results.Append($"| {value} ");
-                }
-                results.AppendLine("|");
-            }
-            return hasRows ? results.ToString() : "No data found.";
-        });
-    }
 
     [McpServerTool, Description("""
         Gets column lists of a given table or all table in a database. Can filter columns by data type, precision, and scale.
@@ -110,7 +66,7 @@ public static class SchemaTool
 
         command.CommandText = _tableQuery.ToString();
 
-        return Execute(command, (reader) =>
+        return DbHelper.Execute(command, (reader) =>
         {
             var results = new StringBuilder();
 
@@ -148,7 +104,7 @@ public static class SchemaTool
             """;
 
         var cmd = new SqlCommand(_tableListQuery);
-        return Execute(cmd, (reader) =>
+        return DbHelper.Execute(cmd, (reader) =>
         {
             var results = new StringBuilder();
 
@@ -170,25 +126,6 @@ public static class SchemaTool
         });
     }
 
-    private static string Execute(SqlCommand command, Func<SqlDataReader, string> readerFunc)
-    {
-        try
-        {
-            string connectionString = Environment.GetEnvironmentVariable("ConnectionString");
-            using var connection = new SqlConnection(connectionString);
-            connection.Open();
-            command.Connection = connection;
-            using var reader = command.ExecuteReader();
-            return readerFunc(reader);
-        }
-        catch (SqlException ex)
-        {
-            return $"Error executing query: {ex.Message}";
-        }
-        catch (Exception ex)
-        {
-            return $"Unexpected error: {ex.Message}";
-        }
-    }
+
 }
 
